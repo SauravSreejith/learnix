@@ -23,7 +23,7 @@ export default function HomePage() {
           </div>
         </div>
 
-       
+
 
         {/* Mobile menu button */}
         <button className="md:hidden text-foreground p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
@@ -35,7 +35,7 @@ export default function HomePage() {
         </ShimmerButton>
       </header>
 
-      
+
 
       {/* Hero Section */}
       <main className="relative flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-4 sm:px-6 lg:px-12 text-center">
@@ -64,12 +64,7 @@ export default function HomePage() {
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
             </Button>
           </Link>
-          <Button
-            variant="outline"
-            className="px-8 py-3 rounded-lg text-lg font-semibold border-border hover:bg-muted bg-transparent"
-          >
-            Watch Demo
-          </Button>
+          
         </div>
 
         {/* Features Grid */}
