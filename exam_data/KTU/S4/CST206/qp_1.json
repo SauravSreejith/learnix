@@ -1,0 +1,189 @@
+{
+  "courseCode": "CST 206",
+  "courseName": "OPERATING SYSTEMS",
+  "month": "May",
+  "questions": [
+    {
+      "marks": "3",
+      "module": "Module-1",
+      "question": "Differentiate symmetric and asymmetric multiprocessor systems.",
+      "topic": "Operating System Structures"
+    },
+    {
+      "marks": "3",
+      "module": "Module-1",
+      "question": "Explain the two modes of operations of operating system.",
+      "topic": "Operating System Structures"
+    },
+    {
+      "marks": "3",
+      "module": "Module-2",
+      "question": "Explain process control block.",
+      "topic": "Process States and PCB"
+    },
+    {
+      "marks": "3",
+      "module": "Module-2",
+      "question": "How many times 'Good Luck' and 'Do well' will be printed after executing the following code. Justify your answer.\nvoid main()\n{\nfork();\nprintf(\"Good Luck\\n\");\nfork();\nfork();\nprintf(\"Do well\\n\");\n}",
+      "topic": "Process Lifecycle Management"
+    },
+    {
+      "marks": "3",
+      "module": "Module-3",
+      "question": "Explain the three requirements to be satisfied for a solution to critical section problem.",
+      "topic": "Critical Section Problem"
+    },
+    {
+      "marks": "3",
+      "module": "Module-3",
+      "question": "Explain the two operations of semaphores.",
+      "topic": "Semaphores"
+    },
+    {
+      "marks": "3",
+      "module": "Module-4",
+      "question": "Differentiate between internal and external fragmentation.",
+      "topic": "Contiguous Memory Allocation"
+    },
+    {
+      "marks": "3",
+      "module": "Module-4",
+      "question": "Explain the function of memory management unit.",
+      "topic": "Paging"
+    },
+    {
+      "marks": "3",
+      "module": "Module-5",
+      "question": "Explain single level directory structure with an example.",
+      "topic": "Directory Implementation"
+    },
+    {
+      "marks": "3",
+      "module": "Module-5",
+      "question": "Define the terms seek time, rotational latency and transfer time.",
+      "topic": "Disk Structure"
+    },
+    {
+      "marks": "6",
+      "module": "Module-1",
+      "question": "a) Explain the different functions of operating system.",
+      "topic": "Operating System Structures"
+    },
+    {
+      "marks": "8",
+      "module": "Module-1",
+      "question": "b) Explain the following operating system structures a) layered approach b) microkernel approach.",
+      "topic": "Operating System Structures"
+    },
+    {
+      "marks": "9",
+      "module": "Module-1",
+      "question": "a) Explain different services provided by operating system",
+      "topic": "Operating System Structures"
+    },
+    {
+      "marks": "5",
+      "module": "Module-1",
+      "question": "b) What is a system call? Explain the different steps in handling a system call.",
+      "topic": "System Calls"
+    },
+    {
+      "marks": "8",
+      "module": "Module-2",
+      "question": "a) Consider the following set of process.\nProcess P1 P2 P3 P4 P5\nBurst time 5 13 8 4 10\nArrival time 2 3 0 5 1\nDraw Gantt Chart for executing above processes using shortest remaining time first and shortest job first. Find the average waiting time and average turnaround time for the above scheduling algorithms",
+      "topic": "Process Scheduling Algorithms"
+    },
+    {
+      "marks": "6",
+      "module": "Module-2",
+      "question": "b) Explain the different process states with a suitable diagram.",
+      "topic": "Process States and PCB"
+    },
+    {
+      "marks": "8",
+      "module": "Module-2",
+      "question": "a) Explain any two IPC mechanisms used for process communication.",
+      "topic": "Inter-Process Communication (IPC)"
+    },
+    {
+      "marks": "6",
+      "module": "Module-2",
+      "question": "b) Differentiate short term, long term and medium-term scheduler",
+      "topic": "Process Scheduling Criteria"
+    },
+    {
+      "marks": "8",
+      "module": "Module-3",
+      "question": "a) Consider the following snapshot of a system with five processes P0,P1, P2, P3, P4 and four resources A,B,C and D\nProcess Max(A B C D) Allocation(A B C D) Available(A B C D)\nP0 6 0 1 2 | 4 0 0 1 | 3 2 1 1\nP1 2 7 5 0 | 1 1 0 0\nP2 2 3 5 6 | 1 2 5 4\nP3 1 6 5 3 | 0 6 3 3\nP4 1 6 5 6 | 0 2 1 2\nUsing Banker's algorithm, answer the following questions:-\ni) How many instances of resources A, B, C, D are there?\nii) What is the content of Need matrix?\niii) Is the system in a safe state? If it is, find the safe sequence.",
+      "topic": "Banker's Algorithm"
+    },
+    {
+      "marks": "6",
+      "module": "Module-3",
+      "question": "b) Explain any one two process solution for solving critical section problem.",
+      "topic": "Critical Section Problem"
+    },
+    {
+      "marks": "8",
+      "module": "Module-3",
+      "question": "a) Explain readers writers' problem. How it can be solved using semaphores?",
+      "topic": "Classic Synchronization Problems"
+    },
+    {
+      "marks": "6",
+      "module": "Module-3",
+      "question": "b) Explain different methods of recovering from a deadlock",
+      "topic": "Deadlock Detection and Recovery"
+    },
+    {
+      "marks": "9",
+      "module": "Module-4",
+      "question": "a) Consider the following page reference string 1, 2, 3, 2, 4, 1, 3, 2, 4, 1. Find out the number of page faults if there are 3 page frames, using the following page replacement algorithms. i) FIFO ii) Optimal iii) LRU",
+      "topic": "Page Replacement Algorithms"
+    },
+    {
+      "marks": "5",
+      "module": "Module-4",
+      "question": "b) Explain the concept of segmentation with suitable diagrams",
+      "topic": "Segmentation"
+    },
+    {
+      "marks": "8",
+      "module": "Module-4",
+      "question": "a) Consider a simple paging system with 8KB page size and a page table with each entry of size 4 bytes. Answer the following questions.\n(i) How many bits are used for representing the page offset value?\n(ii) What is the size of the physical memory (in bytes) that can be addressed?\n(iii) Calculate the amount of internal fragmentation for a process of size 205KB.\n(iv) Is it possible to load a process of size 98KB if there are 12 free frames. Justify your answer.",
+      "topic": "Paging"
+    },
+    {
+      "marks": "6",
+      "module": "Module-4",
+      "question": "b) Explain the steps in handling a page fault.",
+      "topic": "Demand Paging"
+    },
+    {
+      "marks": "10",
+      "module": "Module-5",
+      "question": "a) Explain contiguous and linked file allocation strategies mentioning each method's advantages and disadvantages.",
+      "topic": "File Allocation Methods"
+    },
+    {
+      "marks": "4",
+      "module": "Module-5",
+      "question": "b) Explain the different file attributes",
+      "topic": "File Concepts and Operations"
+    },
+    {
+      "marks": "9",
+      "module": "Module-5",
+      "question": "a) Suppose that a disk drive has 200 cylinders numbered from 0 to 199 and the current position of the head is at cylinder 100. For the given queue of requests: 20, 89, 130, 45, 120 and 180, draw the head movement in FCFS, SSTF and C-SCAN disk scheduling algorithms and compute the total head movements (in cylinders) in each.",
+      "topic": "Disk Scheduling"
+    },
+    {
+      "marks": "5",
+      "module": "Module-5",
+      "question": "b) Explain different file access methods.",
+      "topic": "File Access Methods"
+    }
+  ],
+  "scheme": "2019 Scheme",
+  "year": 2024
+}

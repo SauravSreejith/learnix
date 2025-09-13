@@ -1,6 +1,8 @@
+
 # HACKNOVA: LEARNIX
+
 ## 🔗 Project Repository
-### 👥 Team Name: Stardust Crusaders  
+### 👥 Team Name: Stardust Crusaders
 **Members**: Anagha K, Saurav Sreejith, Shreya Padmakumar, S Murugan
 
 ---
@@ -24,28 +26,29 @@ The platform is not a shortcut for passing exams—it’s a comprehensive study 
   - `Flask` – REST API
   - `LangChain` – RAG orchestration
 - **Libraries**:
-  - `sentence-transformers` – Semantic vector embeddings
+  - `sentence-transformers` & `langchain-huggingface` – Semantic vector embeddings
   - `scikit-learn` – Cosine similarity
   - `numpy` – Numerical simulations
-  - `langchain-google-genai` – Gemini LLM + Embeddings
+  - `langchain-groq` – High-speed LLM for Q&A
   - `chromadb` – Persistent vector store
   - `pypdf` – PDF parsing
-  - `python-dotenv` – Secure env var handling
+  - `python-dotenv` – Secure environment variable handling
   - `flask-cors` – CORS for frontend
 
 ### 🌐 Frontend
 
-- **Repo**: [murugnn/learnix](https://github.com/murugnn/learnix)
-- **Framework**: React.js (Vite)
+- **Framework**: Next.js (React Framework)
 - **Language**: TypeScript
 - **Styling**:
   - `tailwindcss`
   - `shadcn/ui`
 - **Libraries**:
-  - `react-router-dom` – Routing
+  - Next.js App Router – File-based routing
+  - `react-markdown` – Renders AI-generated markdown
+  - `@tailwindcss/typography` – Styles markdown content
   - `lucide-react` – Icons
 - **Tools**:
-  - `Vite` – Build tool
+  - `Next.js CLI` – Build tool
   - `npm` – Package manager
 
 ---
@@ -56,34 +59,34 @@ The platform is not a shortcut for passing exams—it’s a comprehensive study 
 
 - Python 3.10+ and `pip`
 - Node.js and `npm`
-- Google Gemini API Key
-  
+- **Groq API Key** (for the RAG Tutor)
+
 ---
 
 ### 🔧 Backend Setup
 
 ```bash
-# Clone the backend repo
+# Clone the backend repository
 git clone <your-backend-repository-url>
-cd engine  # or your backend folder
+cd <backend-folder-name>
 
-# Create virtual environment
+# Create and activate a virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Create environment file
+# Create the environment file
 touch .env
-# Then edit it with your Gemini key
-# e.g., nano .env
-````
+```
+
+Now, edit the `.env` file to include your Groq API key, which you can get for free from the [Groq Console](https://console.groq.com/keys).
 
 Your `.env` should contain:
 
 ```env
-GEMINI_API_KEY="AIzaSy...YOUR_API_KEY_HERE"
+GROQ_API_KEY="gsk_...YOUR_API_KEY_HERE"
 ```
 
 ---
@@ -91,9 +94,9 @@ GEMINI_API_KEY="AIzaSy...YOUR_API_KEY_HERE"
 ### 🎨 Frontend Setup
 
 ```bash
-# In a separate folder
-git clone https://github.com/SauravSreejith/passpilot-web.git
-cd passpilot-web
+# In a separate terminal, clone the frontend repository
+git clone <your-frontend-repository-url>
+cd <frontend-folder-name>
 
 # Install frontend dependencies
 npm install
@@ -103,30 +106,29 @@ npm install
 
 ## 🚀 Running the App
 
-You’ll need **two terminals**: one for backend, one for frontend.
+You will need **two separate terminals**: one for the backend and one for the frontend.
 
 ---
 
 ### ▶️ Start Backend
 
 ```bash
-# In backend directory
-source venv/bin/activate
+# In your backend directory, with the virtual environment active
 python run_server.py
 ```
 
-> The backend runs on `http://localhost:5000`.
+> The backend server will run on `http://localhost:5000`.
 
 ---
 
 ### ▶️ Start Frontend
 
 ```bash
-# In frontend directory
+# In your frontend directory
 npm run dev
 ```
 
-> The frontend runs on `http://localhost:5173`.
+> The frontend development server will run on `http://localhost:3000`.
 
 ---
 
@@ -142,29 +144,26 @@ Learnix turns exam stress into smart study strategies—helping students prepare
 
 #### 📌 Semantic Question Analysis
 
-* **Model**: `all-MiniLM-L6-v2`
-* **Goal**: Understand question *meaning*, not just keywords
-* **Method**: Embed both user input and database questions → compute cosine similarity
+*   **Model**: `all-MiniLM-L6-v2`
+*   **Goal**: Understand question *meaning*, not just keywords.
+*   **Method**: Embed both user queries and all database questions into vectors, then compute cosine similarity to find the closest matches.
 
 #### 📌 Pass-Strategy Algorithm
 
-* **Formula**:
-  `Strategic Value = Topic Frequency × Average Marks Per Appearance`
-* **Mechanism**:
-
-  * Calculate user’s deficit
-  * Rank unstudied topics by Strategic Value
-  * Recommend highest ROI topics until gap is closed
+*   **Formula**: `Strategic Value = Topic Frequency × Average Marks Per Appearance`
+*   **Mechanism**:
+    1.  Calculate the student's current mark deficit based on their target.
+    2.  Rank all unstudied topics by their "Strategic Value."
+    3.  Recommend the topics with the highest return on investment (ROI) until the mark deficit is covered.
 
 #### 📌 Monte Carlo Simulation
 
-* Generate 100,000 simulated papers
-* For each:
-
-  * Roll for topic appearance (based on historical probability)
-  * Assign random historical mark value
-  * Tally up if student would pass
-* **Output**: Pass probability = % of simulations ≥ target score
+*   Generate 10,000+ simulated exam papers based on historical data.
+*   For each simulated paper:
+    *   Use historical probability to determine if a topic appears.
+    *   If it appears, assign a random mark value from its past occurrences.
+    *   Calculate the total score based on the student's studied topics.
+*   **Output**: Calculate the pass probability as the percentage of simulated exams where the student's score met or exceeded the pass mark.
 
 ---
 
@@ -172,38 +171,38 @@ Learnix turns exam stress into smart study strategies—helping students prepare
 
 #### 💡 Pipeline Overview
 
-1. **Load & Split**:
-   Parse PDFs → Chunk with overlap using `RecursiveCharacterTextSplitter`
+1.  **Load & Split**:
+    Parse all PDF textbooks and reference materials into text, then chunk them with overlap using `RecursiveCharacterTextSplitter`.
 
-2. **Embed & Store**:
-   Use `embedding-001` → Store in `ChromaDB`
+2.  **Embed & Store**:
+    Use the local `all-MiniLM-L6-v2` model (via `HuggingFaceEmbeddings`) to convert text chunks into vector embeddings and store them persistently in `ChromaDB`.
 
-3. **Retrieve**:
-   Query embedded → Retrieve top chunks with vector similarity
+3.  **Retrieve**:
+    When a user asks a question, embed their query and retrieve the most relevant text chunks from ChromaDB using vector similarity search.
 
-4. **Generate**:
-   Use `Gemini 1.5 Flash` to answer based only on relevant context
+4.  **Generate**:
+    Send the user's question along with the retrieved text chunks to a high-speed LLM (`Llama 3` via `Groq`) and instruct it to generate an answer based *only* on the provided context.
 
-> ✳️ This grounds the LLM’s answers, reducing hallucination.
+> ✳️ This process grounds the LLM’s answers in factual, textbook-based knowledge, drastically reducing the risk of hallucination and ensuring curriculum accuracy.
 
 ---
 
 ## 🖼️ Screenshots
 
+*(Add your project screenshots here)*
+
 ---
 
 ## 👩‍💻 Team Contributions
 
-* **Anagha K** – Frontend Lead
-  Built the entire React frontend with Vite, TypeScript, TailwindCSS, and Shadcn/UI.
+*   **Anagha K** – Frontend Lead
+    Built the entire responsive frontend using Next.js, TypeScript, TailwindCSS, and Shadcn/UI.
 
-* **Saurav Sreejith** – Backend & Algorithms
-  Built the Flask API, semantic search engine, strategic value algorithm, and Monte Carlo simulator.
+*   **Saurav Sreejith** – Backend & Algorithms
+    Developed the Flask API, the semantic search engine, the strategic value algorithm, and the Monte Carlo pass probability simulator.
 
-* **Shreya Padmakumar** – AI & RAG Specialist
-  Designed the RAGAnalyzer pipeline using LangChain, Gemini, ChromaDB, and PDF processing.
+*   **Shreya Padmakumar** – AI & RAG Specialist
+    Designed and implemented the `RAGAnalyzer` pipeline using LangChain, Groq, HuggingFace Embeddings, and ChromaDB for PDF-based Q&A.
 
-* **S Murugan** – DevOps & Architecture
-  Structured the repo split, wrote `run_server.py`, handled dependency and environment management.
-
-
+*   **S Murugan** – DevOps & Architecture
+    Structured the monorepo, wrote the `run_server.py` startup script, and managed dependencies and environment configurations for seamless integration.
