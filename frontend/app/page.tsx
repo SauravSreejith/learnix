@@ -23,32 +23,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <nav className="hidden md:flex items-center space-x-6 lg:space-x-8">
-          <a
-            href="#features"
-            className="text-muted-foreground hover:text-foreground transition-colors text-sm lg:text-base"
-          >
-            Features
-          </a>
-          <a
-            href="#pricing"
-            className="text-muted-foreground hover:text-foreground transition-colors text-sm lg:text-base"
-          >
-            Pricing
-          </a>
-          <a
-            href="#about"
-            className="text-muted-foreground hover:text-foreground transition-colors text-sm lg:text-base"
-          >
-            About
-          </a>
-          <a
-            href="#contact"
-            className="text-muted-foreground hover:text-foreground transition-colors text-sm lg:text-base"
-          >
-            Contact
-          </a>
-        </nav>
+       
 
         {/* Mobile menu button */}
         <button className="md:hidden text-foreground p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
@@ -60,27 +35,7 @@ export default function HomePage() {
         </ShimmerButton>
       </header>
 
-      {mobileMenuOpen && (
-        <div className="md:hidden absolute top-16 left-0 right-0 bg-card backdrop-blur-sm border-b border-border z-20">
-          <nav className="flex flex-col space-y-4 px-6 py-6">
-            <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
-              Features
-            </a>
-            <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
-              Pricing
-            </a>
-            <a href="#about" className="text-muted-foreground hover:text-foreground transition-colors">
-              About
-            </a>
-            <a href="#contact" className="text-muted-foreground hover:text-foreground transition-colors">
-              Contact
-            </a>
-            <ShimmerButton className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2.5 rounded-lg text-sm font-medium shadow-lg w-fit">
-              Get Started
-            </ShimmerButton>
-          </nav>
-        </div>
-      )}
+      
 
       {/* Hero Section */}
       <main className="relative flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-4 sm:px-6 lg:px-12 text-center">
