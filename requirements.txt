@@ -1,0 +1,9 @@
+langchain-google-genai
+langchain
+chromadb
+pypdf2
+transformers
+torch
+sentencepiece
+fpdf
+python-dotenv
