@@ -35,7 +35,7 @@ The platform is not a shortcut for passing exams—it’s a comprehensive study 
 
 ### 🌐 Frontend
 
-- **Repo**: [murugnn/learnix]([https://github.com/murugnn/learnix])
+- **Repo**: [murugnn/learnix](https://github.com/murugnn/learnix)
 - **Framework**: React.js (Vite)
 - **Language**: TypeScript
 - **Styling**:
