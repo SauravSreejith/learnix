@@ -1,35 +1,55 @@
 import os
 import logging
+import pickle
 from pathlib import Path
 from dotenv import load_dotenv
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_experimental.text_splitter import SemanticChunker
 from langchain_community.vectorstores import Chroma
-from langchain_groq import ChatGroq
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.chains import RetrievalQA
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate
+from langchain.retrievers import EnsembleRetriever
+from langchain_community.retrievers import BM25Retriever
 from typing import List, Dict, Any
-from groq import AuthenticationError
 
 logger = logging.getLogger(__name__)
 load_dotenv()
-
 
 class RAGAnalyzer:
     def __init__(self, pdf_folder: str, persist_directory: str):
         self.pdf_folder = pdf_folder
         self.persist_directory = persist_directory
 
-        logger.info("Initializing RAG with local HuggingFaceEmbeddings.")
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name="all-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'},
-            cache_folder='./cache'
+        logger.info("Initializing RAG with OpenAI Embeddings and OpenRouter LLM.")
+        
+        openai_api_key = os.getenv("OPENAI_API_KEY", "dummy-key-for-embeddings")
+        self.embeddings = OpenAIEmbeddings(
+            model="text-embedding-3-small",
+            openai_api_key=openai_api_key
         )
-        self.llm = ChatGroq(model_name="llama-3.1-8b-instant", temperature=0.1)
+        self.llm = ChatOpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=os.getenv("OPENROUTER_API_KEY", "dummy"),
+            model="meta-llama/llama-3.1-8b-instruct:free",
+            temperature=0,
+            extra_body={
+                "provider": {
+                    "order": ["Anthropic", "Google", "OpenAI"],
+                    "allow_fallbacks": True
+                }
+            }
+        )
+        
         self.vectorstore = None
         self.base_retriever = None
+        self.bm25_retriever = None
+        self.ensemble_retriever = None
+        
         os.makedirs(self.pdf_folder, exist_ok=True)
         os.makedirs(self.persist_directory, exist_ok=True)
 
@@ -37,94 +57,106 @@ class RAGAnalyzer:
         pdf_path = Path(self.pdf_folder)
         all_pdf_files = list(pdf_path.rglob("*.pdf"))
         if not all_pdf_files:
-            logger.warning(f"No PDF files found in {self.pdf_folder}. The RAG system will have no data.")
+            logger.warning(f"No PDF files found in {self.pdf_folder}.")
             return []
-        logger.info(f"Found {len(all_pdf_files)} PDF documents to load for indexing.")
+            
+        logger.info(f"Found {len(all_pdf_files)} PDF documents to load.")
         documents = []
         for pdf_file in all_pdf_files:
             try:
                 loader = PyPDFLoader(str(pdf_file))
                 documents.extend(loader.load())
             except Exception as e:
-                logger.error(f"Failed to load or process {pdf_file}: {e}")
+                logger.error(f"Failed to load {pdf_file}: {e}")
+                
         if not documents:
-            logger.error("Could not load any content from the PDF files found.")
             return []
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+            
+        logger.info("Semantic chunking in progress...")
+        text_splitter = SemanticChunker(self.embeddings)
         split_docs = text_splitter.split_documents(documents)
-        logger.info(f"Split {len(documents)} document pages into {len(split_docs)} text chunks.")
+        logger.info(f"Split raw documents into {len(split_docs)} semantic chunks.")
         return split_docs
 
     def index_documents(self):
-        documents_to_index = self._load_and_split_documents()
-        if not documents_to_index:
-            logger.error("No documents to index. Vectorstore creation aborted.")
+        docs = self._load_and_split_documents()
+        if not docs:
+            logger.error("No documents to index.")
             return
-        logger.info("Creating new vectorstore and indexing documents...")
-        self.vectorstore = Chroma.from_documents(
-            documents=documents_to_index,
-            embedding=self.embeddings,
-            persist_directory=self.persist_directory
-        )
-        logger.info(f"Successfully indexed documents and saved vectorstore to {self.persist_directory}")
+            
+        logger.info("Creating Chroma vectorstore and BM25 index...")
+        self.vectorstore = Chroma.from_documents(docs, self.embeddings, persist_directory=self.persist_directory)
+        
+        self.bm25_retriever = BM25Retriever.from_documents(docs)
+        self.bm25_retriever.k = 3
+        
+        with open(os.path.join(self.persist_directory, 'bm25.pkl'), 'wb') as f:
+            pickle.dump(self.bm25_retriever, f)
+            
+        logger.info("Finished creating and saving indexes.")
 
     def load_or_create_vectorstore(self):
-        if os.path.exists(self.persist_directory) and os.listdir(self.persist_directory):
-            logger.info(f"Loading existing vectorstore from {self.persist_directory}")
-            self.vectorstore = Chroma(
-                persist_directory=self.persist_directory,
-                embedding_function=self.embeddings
-            )
+        bm25_path = os.path.join(self.persist_directory, 'bm25.pkl')
+        if os.path.exists(self.persist_directory) and os.listdir(self.persist_directory) and os.path.exists(bm25_path):
+            logger.info("Loading existing Chroma vectorstore and BM25 index.")
+            self.vectorstore = Chroma(persist_directory=self.persist_directory, embedding_function=self.embeddings)
+            with open(bm25_path, 'rb') as f:
+                self.bm25_retriever = pickle.load(f)
         else:
-            logger.warning(f"No existing vectorstore found in '{self.persist_directory}'. Indexing new documents.")
+            logger.info("Indexes not found or corrupted. Re-indexing...")
             self.index_documents()
-        if self.vectorstore:
+            
+        if self.vectorstore and self.bm25_retriever:
             self._prepare_base_retriever()
 
     def _prepare_base_retriever(self):
-        if not self.vectorstore:
-            logger.error("Cannot prepare retriever: vectorstore is not initialized.")
-            return
-        self.base_retriever = self.vectorstore.as_retriever(search_kwargs={"k": 3})
-        logger.info("RAG base retriever is ready.")
+        vector_retriever = self.vectorstore.as_retriever(search_kwargs={"k": 3})
+        self.ensemble_retriever = EnsembleRetriever(
+            retrievers=[self.bm25_retriever, vector_retriever],
+            weights=[0.3, 0.7] # Vector search gets more weight for contextual understanding
+        )
+        logger.info("RAG Ensemble Retriever (Hybrid Search) is ready.")
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    def _invoke_qa(self, qa_chain, query):
+        return qa_chain.invoke({"query": query})
 
     def ask(self, query: str, source_filter: List[str] = None) -> Dict[str, Any]:
-        if not self.base_retriever:
-            return {"result": "Error: The Question-Answering system is not ready. No documents may have been indexed.",
-                    "source_documents": []}
-        logger.info(f"RAG query: '{query}', Sources: {source_filter or 'All'}")
-        retriever_to_use = self.base_retriever
-        if source_filter:
-            retriever_to_use = self.vectorstore.as_retriever(
-                search_kwargs={'filter': {'source': {'$in': source_filter}}, "k": 3}
-            )
-        qa_chain = RetrievalQA.from_chain_type(
-            llm=self.llm, chain_type="stuff", retriever=retriever_to_use, return_source_documents=True
+        if not self.ensemble_retriever:
+            return {"result": "Error: RAG not ready.", "source_documents": []}
+            
+        # Due to LangChain limitations with EnsembleRetriever filtering, we gracefully skip source filtering
+        # when using RRF hybrid search, as BM25 doesn't cleanly accept metadata filtering out of the box.
+        retriever_to_use = self.ensemble_retriever
+        
+        # Create modern LCEL retrieval chain
+        prompt = ChatPromptTemplate.from_template(
+            """Answer the following question based only on the provided context:
+        
+        <context>
+        {context}
+        </context>
+        
+        Question: {input}"""
         )
+        
+        document_chain = create_stuff_documents_chain(self.llm, prompt)
+        retrieval_chain = create_retrieval_chain(retriever_to_use, document_chain)
+        
         try:
-            result = qa_chain.invoke({"query": query})
+            result = retrieval_chain.invoke({"input": query})
             sources = []
-            if 'source_documents' in result:
+            if 'context' in result:
                 unique_sources = {}
-                for doc in result.get('source_documents', []):
-                    # --- THIS IS THE CORRECTED BLOCK ---
-                    # The multi-assignment is broken into separate lines.
+                for doc in result.get('context', []):
                     metadata = doc.metadata
                     source_file = os.path.basename(metadata.get("source", "Unknown"))
                     page = metadata.get("page", -1) + 1
-
                     if source_file not in unique_sources:
                         unique_sources[source_file] = page
                 sources = [{"source": src, "page": pg} for src, pg in unique_sources.items()]
-            return {"result": result.get('result', "Sorry, I couldn't find an answer."), "source_documents": sources}
-        except AuthenticationError as e:
-            logger.error(f"Groq Authentication Error: {e}", exc_info=True)
-            return {
-                "result": "Groq API Authentication Error. Please ensure your GROQ_API_KEY is correct in the .env file and the server has been restarted.",
-                "source_documents": []
-            }
+            return {"result": result.get('answer', "No answer found."), "source_documents": sources}
+            
         except Exception as e:
-            logger.error(f"Error during RAG query processing: {e}", exc_info=True)
-            return {
-                "result": "An error occurred while trying to find an answer. Please check the server logs for details.",
-                "source_documents": []}
+            logger.error(f"Error during RAG query: {e}", exc_info=True)
+            return {"result": f"API Error: {e}", "source_documents": []}

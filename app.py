@@ -11,6 +11,10 @@ from pathlib import Path
 import config
 from exam_analyzer import ExamAnalyzer
 from rag_analyzer import RAGAnalyzer
+from database import engine, SessionLocal, Base
+from models import User, StudyHistory, ExamQuestion
+from auth import get_password_hash, verify_password, create_access_token, token_required
+from sqlalchemy import text
 
 # --- 1. SETUP AND CONFIGURATION ---
 load_dotenv()
@@ -19,6 +23,16 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app, origins=config.API_CONFIG['cors_origins'])
+
+# Initialize DB tables
+try:
+    # Need to execute CREATE EXTENSION IF NOT EXISTS vector
+    with engine.connect() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        conn.commit()
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    logger.error(f"Failed to initialize DB tables. Ensure Postgres is running: {e}")
 
 # Use paths from config file
 PDF_FOLDER = config.DATA_CONFIG['pdf_folder']
@@ -89,14 +103,14 @@ def _find_pdf_directory_for_subject(subject_code: str) -> Path | None:
 # --- 3. API ENDPOINTS ---
 
 @app.route('/ask', methods=['POST'])
+@token_required
 def ask_document():
-    """Handles questions for the RAG system."""
-    # This check is now effective because initialize_rag_analyzer will work correctly.
-    if not rag_analyzer or not rag_analyzer.base_retriever:
+    """Handles questions for the RAG system with streaming."""
+    if not rag_analyzer or not rag_analyzer.ensemble_retriever:
         return jsonify({
             'query': request.get_json().get('query', ''),
             'answer': {
-                'result': 'Error: The RAG Question-Answering system did not initialize correctly. Please check the server logs for the root cause (e.g., missing API key or invalid PDF).',
+                'result': 'Error: RAG system is not initialized.',
                 'source_documents': []
             }
         }), 503
@@ -109,8 +123,22 @@ def ask_document():
     subject_pdf_path = _find_pdf_directory_for_subject(subject_code)
     full_source_paths = [str(subject_pdf_path / src) for src in sources] if subject_pdf_path and sources else None
 
-    answer = rag_analyzer.ask(query, source_filter=full_source_paths)
-    return jsonify({'query': query, 'answer': answer})
+    # Retrieve context and sources first
+    retriever_res = rag_analyzer.ask(query, source_filter=full_source_paths)
+    context_docs = retriever_res.get("source_documents", [])
+    
+    # We yield the stream of tokens
+    def generate():
+        # First send the sources block as a special JSON packet, separated by a newline
+        yield json.dumps({"type": "sources", "data": context_docs}) + "\n"
+        
+        # Then stream the text tokens
+        for chunk in rag_analyzer.llm.stream(query):
+            if chunk.content:
+                yield json.dumps({"type": "token", "content": chunk.content}) + "\n"
+                
+    from flask import Response
+    return Response(generate(), mimetype='application/x-ndjson')
 
 # ... (The rest of your app.py endpoints are fine and do not need to be changed) ...
 @app.route('/subjects', methods=['GET'])
@@ -141,17 +169,80 @@ def get_subjects():
 @app.route('/auth/signup', methods=['POST'])
 def signup():
     data = request.get_json()
-    return jsonify({"user": {"name": data.get('name'), "email": data.get('email'), "is_first_login": True}, "token": "mock-jwt-token-for-new-user"}), 201
+    email = data.get('email')
+    password = data.get('password')
+    name = data.get('name')
+    
+    if not email or not password or not name:
+        return jsonify({'error': 'Missing required fields'}), 400
+        
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            return jsonify({'error': 'Email already exists'}), 400
+            
+        new_user = User(
+            name=name,
+            email=email,
+            password_hash=get_password_hash(password)
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        
+        token = create_access_token({"sub": new_user.email})
+        return jsonify({
+            "user": {"name": new_user.name, "email": new_user.email, "is_first_login": True}, 
+            "token": token
+        }), 201
+    finally:
+        db.close()
 
 @app.route('/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
-    return jsonify({"user": {"name": "John Doe", "email": data.get('email'), "syllabus": "KTU", "level": "S5", "is_first_login": False}, "token": "mock-jwt-token-for-existing-user"}), 200
+    email = data.get('email')
+    password = data.get('password')
+    
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if not user or not verify_password(password, user.password_hash):
+            return jsonify({'error': 'Invalid email or password'}), 401
+            
+        token = create_access_token({"sub": user.email})
+        is_first_login = not bool(user.syllabus and user.level)
+        return jsonify({
+            "user": {"name": user.name, "email": user.email, "syllabus": user.syllabus, "level": user.level, "is_first_login": is_first_login}, 
+            "token": token
+        }), 200
+    finally:
+        db.close()
 
 @app.route('/profile', methods=['PUT'])
+@token_required
 def update_profile():
     data = request.get_json()
-    return jsonify({"message": "Profile updated successfully", "user": data}), 200
+    user_email = request.user_data.get("sub")
+    
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == user_email).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        if 'syllabus' in data: user.syllabus = data['syllabus']
+        if 'level' in data: user.level = data['level']
+        
+        db.commit()
+        db.refresh(user)
+        
+        return jsonify({"message": "Profile updated successfully", "user": {
+            "name": user.name, "email": user.email, "syllabus": user.syllabus, "level": user.level
+        }}), 200
+    finally:
+        db.close()
 
 @app.route('/documents', methods=['GET'])
 def get_documents_for_subject():
@@ -175,6 +266,7 @@ def semantic_query():
     return jsonify({'query': query, 'questions': results, 'total_matches': len(results), 'module_distribution': exam_analyzer.get_module_distribution(results), 'marks_distribution': exam_analyzer.get_marks_distribution(results)})
 
 @app.route('/pass-strategy', methods=['POST'])
+@token_required
 def pass_strategy():
     if not exam_analyzer or not exam_analyzer.is_fitted: return jsonify({'error': 'Exam analyzer not ready.'}), 503
     data = request.get_json()
@@ -187,6 +279,7 @@ def pass_strategy():
     return jsonify(strategy)
 
 @app.route('/pass-simulation', methods=['POST'])
+@token_required
 def pass_simulation():
     if not exam_analyzer or not exam_analyzer.is_fitted: return jsonify({'error': 'Exam analyzer not ready.'}), 503
     data = request.get_json()

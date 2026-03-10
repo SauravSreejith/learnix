@@ -25,7 +25,7 @@ def check_dependencies():
     """Check if all required dependencies are installed."""
     logger.info("Checking dependencies...")
     try:
-        import flask, flask_cors, sentence_transformers, sklearn, numpy, langchain_community, pypdf, chromadb, langchain_google_genai
+        import flask, flask_cors, sentence_transformers, sklearn, numpy, langchain_community, pypdf, chromadb
         logger.info("✅ All major dependencies found!")
         return True
     except ImportError as e:

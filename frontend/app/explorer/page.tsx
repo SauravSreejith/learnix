@@ -46,7 +46,11 @@ export default function ExplorerPage() {
 
     const fetchModules = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stats?subject_code=${currentSubject.code}`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stats?subject_code=${currentSubject.code}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         const data = await response.json();
         setAvailableModules(data.modules || []);
       } catch (error) {
@@ -75,7 +79,10 @@ export default function ExplorerPage() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/query`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           query: searchQuery,
           subject_code: currentSubject.code,
@@ -105,91 +112,91 @@ export default function ExplorerPage() {
   }
 
   return (
-      <div className="space-y-6">
-        <FadeIn>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Question Explorer</h1>
-            <p className="text-muted-foreground">Search through {currentSubject.name} exam questions using natural language</p>
+    <div className="space-y-6">
+      <FadeIn>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Question Explorer</h1>
+          <p className="text-muted-foreground">Search through {currentSubject.name} exam questions using natural language</p>
+        </div>
+      </FadeIn>
+
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex gap-2">
+            <Input placeholder={`Search for ${currentSubject.name} questions...`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyPress={handleKeyPress} />
+            <Button onClick={handleSearch} disabled={isLoading || !searchQuery.trim()}>
+              {isLoading ? <LoadingSpinner size="sm" className="mr-2" /> : <Search className="w-4 h-4 mr-2" />}
+              {isLoading ? "Searching..." : "Search"}
+            </Button>
+          </div>
+          {availableModules.length > 0 && (
+            <Card className="bg-muted/50">
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between text-sm">Filter by Module ({selectedModules.length} selected)<ChevronDown className="w-4 h-4" /></Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="p-4 pt-0">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {availableModules.map((module) => (
+                      <div key={module} className="flex items-center space-x-2">
+                        <Checkbox id={module} checked={selectedModules.includes(module)} onCheckedChange={() => handleModuleToggle(module)} />
+                        <Label htmlFor={module} className="text-sm font-medium cursor-pointer">{module}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+          )}
+        </CardContent>
+      </Card>
+
+      {searchResults && (
+        <FadeIn delay={0.2}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              <h2 className="text-xl font-semibold">Found {searchResults.total_matches} matching questions</h2>
+              {searchResults.questions.length > 0 ? (
+                <StaggerContainer className="space-y-4">
+                  {searchResults.questions.map((q, index) => (
+                    <StaggerItem key={index}>
+                      <Card><CardContent className="pt-6 space-y-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <p className="text-sm leading-relaxed flex-1">{q.question}</p>
+                          <div className="flex flex-col items-end gap-2 shrink-0">
+                            <Badge variant="outline">{q.marks} Marks</Badge>
+                            <Progress value={q.similarity_score * 100} className="w-20 h-2" />
+                            <span className="text-xs text-muted-foreground">{Math.round(q.similarity_score * 100)}% match</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="secondary">{q.module}</Badge>
+                          <Badge variant="outline">{q.topic}</Badge>
+                        </div>
+                      </CardContent></Card>
+                    </StaggerItem>
+                  ))}
+                </StaggerContainer>
+              ) : (
+                <p className="text-muted-foreground">No questions matched your criteria.</p>
+              )}
+            </div>
+            <div className="space-y-6">
+              {/* Analytics Charts would be rendered here */}
+            </div>
           </div>
         </FadeIn>
+      )}
 
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            <div className="flex gap-2">
-              <Input placeholder={`Search for ${currentSubject.name} questions...`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyPress={handleKeyPress} />
-              <Button onClick={handleSearch} disabled={isLoading || !searchQuery.trim()}>
-                {isLoading ? <LoadingSpinner size="sm" className="mr-2" /> : <Search className="w-4 h-4 mr-2" />}
-                {isLoading ? "Searching..." : "Search"}
-              </Button>
-            </div>
-            {availableModules.length > 0 && (
-                <Card className="bg-muted/50">
-                  <Collapsible>
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" className="w-full justify-between text-sm">Filter by Module ({selectedModules.length} selected)<ChevronDown className="w-4 h-4" /></Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="p-4 pt-0">
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {availableModules.map((module) => (
-                            <div key={module} className="flex items-center space-x-2">
-                              <Checkbox id={module} checked={selectedModules.includes(module)} onCheckedChange={() => handleModuleToggle(module)} />
-                              <Label htmlFor={module} className="text-sm font-medium cursor-pointer">{module}</Label>
-                            </div>
-                        ))}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </Card>
-            )}
-          </CardContent>
-        </Card>
-
-        {searchResults && (
-            <FadeIn delay={0.2}>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-4">
-                  <h2 className="text-xl font-semibold">Found {searchResults.total_matches} matching questions</h2>
-                  {searchResults.questions.length > 0 ? (
-                      <StaggerContainer className="space-y-4">
-                        {searchResults.questions.map((q, index) => (
-                            <StaggerItem key={index}>
-                              <Card><CardContent className="pt-6 space-y-3">
-                                <div className="flex items-start justify-between gap-4">
-                                  <p className="text-sm leading-relaxed flex-1">{q.question}</p>
-                                  <div className="flex flex-col items-end gap-2 shrink-0">
-                                    <Badge variant="outline">{q.marks} Marks</Badge>
-                                    <Progress value={q.similarity_score * 100} className="w-20 h-2" />
-                                    <span className="text-xs text-muted-foreground">{Math.round(q.similarity_score * 100)}% match</span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <Badge variant="secondary">{q.module}</Badge>
-                                  <Badge variant="outline">{q.topic}</Badge>
-                                </div>
-                              </CardContent></Card>
-                            </StaggerItem>
-                        ))}
-                      </StaggerContainer>
-                  ) : (
-                      <p className="text-muted-foreground">No questions matched your criteria.</p>
-                  )}
-                </div>
-                <div className="space-y-6">
-                  {/* Analytics Charts would be rendered here */}
-                </div>
-              </div>
-            </FadeIn>
-        )}
-
-        {!searchResults && !isLoading && (
-            <FadeIn delay={0.4}>
-              <Card className="text-center py-12"><CardContent>
-                <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Explore {currentSubject.name} Questions</h3>
-                <p className="text-muted-foreground">Enter a query above to begin your search.</p>
-              </CardContent></Card>
-            </FadeIn>
-        )}
-      </div>
+      {!searchResults && !isLoading && (
+        <FadeIn delay={0.4}>
+          <Card className="text-center py-12"><CardContent>
+            <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Explore {currentSubject.name} Questions</h3>
+            <p className="text-muted-foreground">Enter a query above to begin your search.</p>
+          </CardContent></Card>
+        </FadeIn>
+      )}
+    </div>
   )
 }

@@ -3,6 +3,16 @@ Configuration file for the Learnix Engine.
 Adjust these settings based on your deployment needs.
 """
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Config:
+    # Use localhost as default since we are running docker-compose locally
+    DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://learnix:learnix_password@localhost:5432/learnix_db")
+    JWT_SECRET = os.environ.get("JWT_SECRET", "super-secret-key-123")
+
 # Model Configuration
 MODEL_CONFIG = {
     'name': 'all-MiniLM-L6-v2',  # Sentence transformer model

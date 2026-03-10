@@ -1,1 +1,7 @@
 .env
+venv/
+node_modules/
+__pycache__/
+.env.local
+.env.production
+cache/

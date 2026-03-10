@@ -225,8 +225,7 @@ class ExamAnalyzer:
             }
         return weighted_topics
 
-    def get_pass_strategy(self, subject_code: str, studied_topics: List[str], target_external_marks: int) -> Dict[
-        str, Any]:
+    def get_pass_strategy(self, subject_code: str, studied_topics: List[str], target_external_marks: int) -> Dict[str, Any]:
         all_topic_weights = self._calculate_topic_weights(subject_code)
         current_score = sum(
             all_topic_weights[topic]['average_marks'] for topic in studied_topics if topic in all_topic_weights)
@@ -236,18 +235,59 @@ class ExamAnalyzer:
             return {'summary': "You're on track!", 'strategy': []}
 
         candidate_topics = {t: d for t, d in all_topic_weights.items() if t not in studied_topics}
-        sorted_candidates = sorted(candidate_topics.items(), key=lambda item: item[1]['strategic_value'], reverse=True)
+        if not candidate_topics:
+            return {'summary': "No more topics to study.", 'strategy': [], 'total_marks_from_strategy': 0}
 
-        strategy, gain = [], 0
-        for topic, data in sorted_candidates:
-            if gain >= score_deficit: break
-            strategy.append({'topic': topic, 'cumulative_marks': round(gain + data['average_marks'], 2),
-                             'avg_marks': data['average_marks']})
-            gain += data['average_marks']
+        # DP Knapsack: min "number of topics" to achieve >= score_deficit, tie-breaking by max strategic_value
+        SCALE = 10
+        target = int(score_deficit * SCALE)
+        dp = {0: ((0, 0.0), [])}  # marks -> ((num_topics, -total_strategic_value), [topics])
+
+        for topic, data in candidate_topics.items():
+            val = int(data['average_marks'] * SCALE)
+            cost_tuple = (1, -data.get('strategic_value', 0))
+
+            current_dp = list(dp.items())
+            for current_val, ((current_cnt, current_strat), current_topics) in current_dp:
+                new_val = current_val + val
+                new_cost = (current_cnt + cost_tuple[0], current_strat + cost_tuple[1])
+                
+                if new_val not in dp or new_cost < dp[new_val][0]:
+                    dp[new_val] = (new_cost, current_topics + [topic])
+
+        best_cost = (float('inf'), float('inf'))
+        best_topics = []
+        for val, (cost, topics) in dp.items():
+            if val >= target:
+                if cost < best_cost:
+                    best_cost = cost
+                    best_topics = topics
+
+        # Fallback to all remaining topics if target is unreachable
+        if not best_topics and dp:
+            best_topics = dp[max(dp.keys())][1]
+
+        # Output formatting
+        strategy_items = []
+        for topic in best_topics:
+            strategy_items.append({
+                'topic': topic,
+                'avg_marks': candidate_topics[topic]['average_marks']
+            })
+
+        # Sort by higher value first
+        strategy_items = sorted(strategy_items, key=lambda x: x['avg_marks'], reverse=True)
+        
+        gain = 0
+        final_strategy = []
+        for s in strategy_items:
+            gain += s['avg_marks']
+            s['cumulative_marks'] = round(gain, 2)
+            final_strategy.append(s)
 
         return {
-            'summary': f"To reach your target of {target_external_marks}, focus on these topics.",
-            'strategy': strategy,
+            'summary': f"Using DP optimization, to reach your target of {target_external_marks}, focus on these topics.",
+            'strategy': final_strategy,
             'total_marks_from_strategy': round(gain, 2)
         }
 

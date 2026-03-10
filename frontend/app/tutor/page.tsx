@@ -36,33 +36,40 @@ export default function TutorPage() {
   const [selectedSources, setSelectedSources] = useState<string[]>([])
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
-  // Effect to initialize/reset chat when subject changes
-  useEffect(() => {
-    if (currentSubject) {
-      setMessages([
-        {
-          id: "1",
-          content: `Hello! I'm your AI tutor for **${currentSubject.name}**. Ask me anything about your course materials.`,
-          role: "assistant",
-          timestamp: new Date(),
-        },
-      ]);
+    // Fetch documents when the selected subject changes.
+    useEffect(() => {
+        if (currentSubject) {
+            setMessages([
+                {
+                    id: "1",
+                    content: `Hello! I'm your AI tutor for **${currentSubject.name}**. Ask me anything about your course materials.`,
+                    role: "assistant",
+                    timestamp: new Date(),
+                },
+            ]);
 
-      const fetchDocuments = async () => {
-        try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents?subject_code=${currentSubject.code}`)
-          const data = await response.json()
-          if (data.documents) {
-            setAvailableSources(data.documents)
-            setSelectedSources(data.documents)
-          }
-        } catch (error) {
-          console.error("Failed to fetch documents:", error)
+            const fetchDocuments = async () => {
+                try {
+                    const response = await fetch(
+                        `${process.env.NEXT_PUBLIC_API_URL}/documents?subject_code=${currentSubject.code}`,
+                        {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        }
+                    )
+                    const data = await response.json()
+                    if (data.documents) {
+                        setAvailableSources(data.documents)
+                        setSelectedSources(data.documents)
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch documents:", error)
+                }
+            }
+            fetchDocuments()
         }
-      }
-      fetchDocuments()
-    }
-  }, [currentSubject])
+    }, [currentSubject, token])
 
   // Effect to scroll to bottom when new messages are added
   useEffect(() => {
@@ -87,25 +94,63 @@ export default function TutorPage() {
     setInputValue("")
     setIsLoading(true)
 
+    // Add empty assistant message initially
+    const assistantMessageId = (Date.now() + 1).toString()
+    setMessages((prev) => [...prev, {
+      id: assistantMessageId, content: "",
+      role: "assistant", timestamp: new Date(), sources: []
+    }])
+
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ask`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ query: currentInput, subject_code: currentSubject.code, sources: selectedSources }),
       });
       if (!response.ok) throw new Error("The request to the AI tutor failed.");
-      const data = await response.json();
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(), content: data.answer.result || "Sorry, I couldn't find an answer.",
-        role: "assistant", timestamp: new Date(), sources: data.answer.source_documents || []
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) throw new Error("Stream not readable");
+
+      let streamedText = "";
+      
+      while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\\n');
+          
+          for (const line of lines) {
+              if (line.trim() === '') continue;
+              try {
+                  const data = JSON.parse(line);
+                  setMessages((prev) => 
+                    prev.map(msg => {
+                      if (msg.id === assistantMessageId) {
+                        if (data.type === "sources") {
+                           return { ...msg, sources: data.data };
+                        } else if (data.type === "token") {
+                           streamedText += data.content;
+                           return { ...msg, content: streamedText };
+                        }
+                      }
+                      return msg;
+                    })
+                  );
+              } catch (e) {
+                 console.error("Failed to parse stream JSON chunk", e, line);
+              }
+          }
       }
-      setMessages((prev) => [...prev, assistantMessage])
     } catch (error) {
       console.error("Error asking AI tutor:", error)
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(), content: "Sorry, I encountered an error. Please try again.",
-        role: "assistant", timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, errorMessage])
+      setMessages((prev) => 
+        prev.map(msg => msg.id === assistantMessageId ? { ...msg, content: "Sorry, I encountered an error. Please try again." } : msg)
+      )
     } finally {
       setIsLoading(false)
     }
