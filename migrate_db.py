@@ -3,21 +3,24 @@ import json
 from pathlib import Path
 from database import engine, SessionLocal, Base
 from models import User, ExamQuestion, StudyHistory
-from rag_analyzer import RAGAnalyzer
+from langchain_community.embeddings import HuggingFaceEmbeddings
+import config
 
-# Initialize database tables
-print("Initializing database tables...")
+# DROP AND RECREATE TABLES TO FIX THE DIMENSION MISMATCH
+print("Dropping old tables and re-initializing database tables...")
+Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 def load_exam_data(data_dir: Path):
     db = SessionLocal()
-    from config import Config, DATA_CONFIG
-    rag = RAGAnalyzer(
-        pdf_folder=DATA_CONFIG['pdf_folder'],
-        persist_directory=DATA_CONFIG['chroma_persist_dir']
+    
+    # Load the HuggingFace embeddings directly
+    print("Loading embedding model...")
+    embeddings = HuggingFaceEmbeddings(
+        model_name=config.MODEL_CONFIG['name'],
+        cache_folder=config.MODEL_CONFIG['cache_folder']
     )
     
-    # Process exam JSON files and index them
     count = 0
     for root, _, files in os.walk(data_dir):
         for file in files:
@@ -27,32 +30,30 @@ def load_exam_data(data_dir: Path):
                     try:
                         data = json.load(f)
                         subject_code = path.parent.name
-                        syllabus = path.parent.parent.parent.name # e.g. KTU
+                        syllabus = path.parent.parent.parent.name
                         
-                        # Use RAG Analyzer to embed and store questions
                         print(f"Processing {path}...")
                         questions = data.get('questions', []) if isinstance(data, dict) else data
                         
                         for q_data in questions:
-                            # Generate embedding for the question
                             q_text = q_data.get('question', '')
                             if not q_text:
                                 continue
                                 
-                            embedding = rag.embeddings.embed_query(q_text)
+                            # Embed locally
+                            embedding = embeddings.embed_query(q_text)
                             
-                            # Create DB Record
                             db_question = ExamQuestion(
                                 id=q_data.get('id', f"{subject_code}_{count}"),
                                 question=q_text,
                                 topic=q_data.get('topic', 'Unknown'),
                                 marks=q_data.get('marks', 0),
-                                module_name=q_data.get('module_name', ''),
+                                module_name=q_data.get('module', 'Unknown'),
                                 course_code=subject_code,
                                 source_file=str(path),
                                 embedding=embedding
                             )
-                            db.merge(db_question)  # use merge instead of add to handle existing IDs gracefully
+                            db.merge(db_question) 
                             count += 1
                            
                     except Exception as e:
@@ -60,7 +61,7 @@ def load_exam_data(data_dir: Path):
                         
     db.commit()
     db.close()
-    print(f"Successfully migrated {count} questions to the database.")
+    print(f"Successfully migrated {count} questions to the PostgreSQL database.")
 
 if __name__ == "__main__":
     exam_dir = Path("./exam_data")

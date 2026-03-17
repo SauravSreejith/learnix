@@ -28,6 +28,10 @@ def create_access_token(data: dict, expires_delta: datetime.timedelta = None):
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
+        # 🟢 FIX: Allow browser CORS preflight requests to pass without a token
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+
         token = request.headers.get('Authorization')
         if not token:
             return jsonify({'message': 'Token is missing!'}), 401

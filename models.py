@@ -32,7 +32,7 @@ class StudyHistory(Base):
 class ExamQuestion(Base):
     __tablename__ = "exam_questions"
 
-    id = Column(String(100), primary_key=True) # e.g. "qp_1.json_0"
+    id = Column(String(100), primary_key=True) 
     question = Column(String, nullable=False)
     topic = Column(String(100), index=True)
     marks = Column(Float, default=0.0)
@@ -40,5 +40,5 @@ class ExamQuestion(Base):
     course_code = Column(String(50), index=True)
     source_file = Column(String(200))
 
-    # OpenAI "text-embedding-3-small" uses dim=1536 natively
-    embedding = Column(Vector(1536))
+    # CHANGED TO 384 FOR HUGGINGFACE LOCAL EMBEDDINGS
+    embedding = Column(Vector(384))

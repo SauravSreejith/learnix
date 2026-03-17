@@ -25,15 +25,14 @@ interface Topic {
 }
 
 export default function DashboardPage() {
-  const { currentSubject } = useAuth()
+  const { currentSubject, token } = useAuth() // 🟢 GRAB TOKEN HERE
   const [stats, setStats] = useState<Stats | null>(null)
   const [topics, setTopics] = useState<Topic[]>([])
   const [minFrequency, setMinFrequency] = useState(2)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // If no subject is selected, do nothing.
-    if (!currentSubject) {
+    if (!currentSubject || !token) {
       setIsLoading(false);
       setStats(null);
       setTopics([]);
@@ -43,10 +42,12 @@ export default function DashboardPage() {
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        // Fetch stats and topics in parallel
+        // 🟢 ADD HEADERS TO FETCH CALLS
+        const headers = { 'Authorization': `Bearer ${token}` };
+
         const [statsRes, topicsRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/stats?subject_code=${currentSubject.code}`),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/topics?subject_code=${currentSubject.code}&min_frequency=${minFrequency}`)
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/stats?subject_code=${currentSubject.code}`, { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/topics?subject_code=${currentSubject.code}&min_frequency=${minFrequency}`, { headers })
         ]);
 
         if (!statsRes.ok || !topicsRes.ok) {
@@ -61,7 +62,6 @@ export default function DashboardPage() {
 
       } catch (error) {
         console.error("Dashboard fetch error:", error)
-        // Set to empty state on error
         setStats(null);
         setTopics([]);
       } finally {
@@ -70,9 +70,8 @@ export default function DashboardPage() {
     }
 
     fetchData()
-  }, [currentSubject, minFrequency])
+  }, [currentSubject, minFrequency, token]) // 🟢 ADD TOKEN TO DEPENDENCIES
 
-  // Initial loading or no subject selected state
   if (!currentSubject) {
     return (
         <div className="flex h-full items-center justify-center">

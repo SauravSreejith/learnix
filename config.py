@@ -1,45 +1,40 @@
-"""
-Configuration file for the Learnix Engine.
-Adjust these settings based on your deployment needs.
-"""
-
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-class Config:
-    # Use localhost as default since we are running docker-compose locally
-    DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://learnix:learnix_password@localhost:5432/learnix_db")
-    JWT_SECRET = os.environ.get("JWT_SECRET", "super-secret-key-123")
+# Automatically format the DB URL for psycopg 3
+db_url = os.environ.get("DATABASE_URL", "postgresql://learnix:learnix_password@localhost:5432/learnix_db")
+if db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg://")
 
-# Model Configuration
+class Config:
+    DATABASE_URL = db_url
+    JWT_SECRET = os.environ.get("JWT_SECRET", "learnix@nssce27")
+
+# REVERTED TO LOCAL EMBEDDINGS
 MODEL_CONFIG = {
-    'name': 'all-MiniLM-L6-v2',  # Sentence transformer model
-    'cache_folder': './cache',   # Where to cache the model
+    'name': 'all-MiniLM-L6-v2', 
+    'cache_folder': './cache', 
 }
 
-# Search Configuration
 SEARCH_CONFIG = {
     'default_similarity_threshold': 0.5,
     'default_top_k': 20,
     'max_top_k': 100,
 }
 
-# API Configuration
 API_CONFIG = {
     'cors_origins': ['*'],
     'max_query_length': 500,
 }
 
-# Data Configuration (CORRECTED SECTION)
 DATA_CONFIG = {
     'pdf_folder': './pdf_files',
     'chroma_persist_dir': './chroma_db',
     'data_folder': './exam_data',
 }
 
-# Pass Strategy & Simulation Config
 PASS_CONFIG = {
     'default_external_pass_threshold': 40,
     'default_overall_pass_threshold': 75,
